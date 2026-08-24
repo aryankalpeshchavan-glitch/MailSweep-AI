@@ -1,0 +1,21 @@
+# Runtime dependencies. Floor-pinned (>=) intentionally: reproducible-enough
+# while still receiving security patches. For a frozen lockfile use:
+#   pip freeze > constraints.lock && pip install -r requirements.txt -c constraints.lock
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7
+pydantic-settings>=2.3
+
+sqlalchemy>=2.0.31
+alembic>=1.13.2
+pg8000>=1.31          # pure-Python PostgreSQL driver (see docs/ENGINEERING_PLAN.md ADR-0002)
+
+redis>=5.0
+celery>=5.4
+
+google-api-python-client>=2.130
+google-auth>=2.30
+google-auth-httplib2>=0.1.0
+
+cryptography>=42      # Fernet encryption for OAuth tokens at rest
+httpx>=0.27           # outbound HTTP (AI provider, Google token endpoint)
