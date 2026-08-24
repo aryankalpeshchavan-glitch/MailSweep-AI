@@ -11,7 +11,7 @@ from collections.abc import Iterator
 from typing import Any
 
 from fastapi import Request
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -29,6 +29,16 @@ def create_engine_and_sessionmaker(
         kwargs.update(engine_kwargs)
 
     engine = create_engine(database_url, connect_args=connect_args, **kwargs)
+
+    if database_url.startswith("sqlite"):
+        # Production PostgreSQL enforces FKs (CASCADE/SET NULL); make SQLite
+        # behave identically so tests exercise real referential integrity.
+        @event.listens_for(engine, "connect")
+        def _enable_sqlite_foreign_keys(dbapi_connection: Any, _: Any) -> None:
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+
     factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
     return engine, factory
 
