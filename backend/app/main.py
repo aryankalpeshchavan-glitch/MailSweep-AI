@@ -10,9 +10,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
+from app.api.routes.analysis import router as analysis_router
+from app.api.routes.audit import router as audit_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.cleanup import router as cleanup_router
+from app.api.routes.groups import router as groups_router
 from app.api.routes.health import router as health_router
+from app.api.routes.mailbox import router as mailbox_router
+from app.api.routes.recommendations import router as recommendations_router
+from app.api.routes.rules import router as rules_router
 from app.core.config import Settings, get_settings
 from app.core.csrf import CsrfOriginMiddleware
 from app.core.errors import install_error_handlers
@@ -106,6 +112,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(cleanup_router)
+    app.include_router(analysis_router)
+    app.include_router(mailbox_router)
+    app.include_router(groups_router)
+    app.include_router(recommendations_router)
+    app.include_router(rules_router)
+    app.include_router(audit_router)
     return app
 
 
