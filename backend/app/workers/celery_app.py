@@ -17,7 +17,6 @@ def make_celery_app(settings: Settings) -> Celery:
     app = Celery(
         "mailsweep",
         broker=settings.REDIS_URL,
-        include=["app.workers.tasks"],
     )
     app.conf.update(
         task_ignore_result=True,
@@ -28,6 +27,17 @@ def make_celery_app(settings: Settings) -> Celery:
         broker_connection_retry_on_startup=True,
         worker_max_tasks_per_child=100,
     )
+
+    from app.workers.tasks import execute_analysis_job, execute_cleanup_job
+
+    @app.task(name="analysis.run")
+    def analysis_run(job_id: str) -> None:
+        execute_analysis_job(job_id)
+
+    @app.task(name="cleanup.run")
+    def cleanup_run(plan_id: str) -> None:
+        execute_cleanup_job(plan_id)
+
     return app
 
 

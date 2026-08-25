@@ -7,6 +7,7 @@ import uuid
 
 from app.analysis.pipeline import run_mailbox_analysis
 from app.auth.tokens import get_valid_access_token
+from app.cleanup.service import execute_approved_plan
 from app.core.config import get_settings
 from app.db.session import create_engine_and_sessionmaker
 from app.gmail.client import GoogleGmailClient
@@ -44,6 +45,40 @@ def execute_analysis_job(job_id: str) -> None:
             run_mailbox_analysis(db, job_id=job_pk, gmail=gmail, settings=settings)
         finally:
             gmail.close()
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def execute_cleanup_job(plan_id: str, *, gmail=None) -> None:
+    """Execute an approved cleanup plan against Gmail (or an injected client)."""
+    import uuid
+
+    settings = get_settings()
+    engine, session_factory = create_engine_and_sessionmaker(
+        settings.normalized_database_url
+    )
+    db = session_factory()
+    try:
+        plan_pk = uuid.UUID(str(plan_id))
+        if gmail is None:
+            from app.cleanup.service import approve_plan  # noqa: F401 - contract ref
+            from app.models import CleanupPlan
+
+            plan = db.get(CleanupPlan, plan_pk)
+            if plan is None:
+                raise ValueError(f"CleanupPlan {plan_id} not found")
+            user = db.get(User, plan.user_id)
+            access_token = get_valid_access_token(
+                db, user=user, secret_key=settings.effective_secret_key(), settings=settings
+            )
+            gmail = GoogleGmailClient(access_token, settings)
+        try:
+            execute_approved_plan(db, plan_id=plan_pk, gmail=gmail)
+        finally:
+            close = getattr(gmail, "close", None)
+            if close is not None:
+                close()
     finally:
         db.close()
         engine.dispose()

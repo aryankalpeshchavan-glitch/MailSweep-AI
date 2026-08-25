@@ -11,7 +11,7 @@ import logging
 import threading
 
 from app.core.config import Settings, get_settings
-from app.workers.tasks import execute_analysis_job
+from app.workers.tasks import execute_analysis_job, execute_cleanup_job
 
 logger = logging.getLogger(__name__)
 
@@ -50,3 +50,36 @@ def _run_inline_safely(job_id: str) -> None:
 def run_inline_blocking(job_id: str) -> None:
     """Synchronous execution for tests and scripts."""
     execute_analysis_job(job_id)
+
+
+def dispatch_cleanup(plan_id: str, *, settings: Settings | None = None) -> str | None:
+    """Queue cleanup execution. Same backend choice as analysis jobs."""
+    resolved = settings or get_settings()
+
+    if not resolved.REDIS_URL:
+        thread = threading.Thread(
+            target=_run_cleanup_safely, args=(plan_id,),
+            name=f"cleanup-{plan_id[:8]}", daemon=True,
+        )
+        thread.start()
+        return _INLINE_MARKER
+
+    from app.workers.celery_app import get_celery_app
+
+    async_result = get_celery_app().send_task("cleanup.run", args=[plan_id])
+    return str(async_result.id)
+
+
+def run_cleanup_blocking(plan_id: str, *, gmail=None) -> None:
+    """Synchronous cleanup execution for tests and scripts."""
+    execute_cleanup_job(plan_id, gmail=gmail)
+
+
+def _run_cleanup_safely(plan_id: str) -> None:
+    try:
+        execute_cleanup_job(plan_id)
+    except Exception:  # noqa: BLE001 - background thread must never crash loudly
+        logger.exception(
+            "inline cleanup crashed", extra={"event": "inline_cleanup_crash", "plan_id": plan_id}
+        )
+
