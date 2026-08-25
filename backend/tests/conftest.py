@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from app.core.config import Settings
@@ -73,3 +74,34 @@ def app(settings: Settings, db_engine: Engine) -> FastAPI:
 def client(app: FastAPI) -> Iterator[TestClient]:
     with TestClient(app) as test_client:
         yield test_client
+
+
+@pytest.fixture()
+def build_world(tmp_path: Path):
+    """Factory for worlds with custom settings.
+
+    Returns ``build(**overrides) -> (settings, TestClient, Engine)`` where the
+    client is already inside its lifespan context.
+    """
+    created: list[tuple[TestClient, Any]] = []
+
+    def _build(**overrides: str) -> tuple[Settings, TestClient, Any]:
+        db_file = tmp_path / f"world-{len(created)}.db"
+        world_settings = make_test_settings(
+            DATABASE_URL=f"sqlite:///{db_file.as_posix()}", **overrides
+        )
+        engine, _ = create_engine_and_sessionmaker(world_settings.normalized_database_url)
+        Base.metadata.create_all(engine)
+
+        application = create_app(world_settings)
+        test_client = TestClient(application)
+        test_client.__enter__()
+        created.append((test_client, engine))
+        return world_settings, test_client, engine
+
+    try:
+        yield _build
+    finally:
+        for client_, engine in created:
+            client_.__exit__(None, None, None)
+            engine.dispose()

@@ -14,10 +14,10 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import JSON, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin, utcnow
+from app.db.base import Base, TimestampMixin, UTCTimestamp, UUIDPrimaryKeyMixin, utcnow
 
 
 class CleanupPlan(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -38,10 +38,10 @@ class CleanupPlan(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     #: comes from the status state machine, not from this column.
     idempotency_key: Mapped[str | None] = mapped_column(String(64))
 
-    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    execution_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_at: Mapped[datetime | None] = mapped_column(UTCTimestamp())
+    execution_started_at: Mapped[datetime | None] = mapped_column(UTCTimestamp())
+    completed_at: Mapped[datetime | None] = mapped_column(UTCTimestamp())
+    cancelled_at: Mapped[datetime | None] = mapped_column(UTCTimestamp())
     #: {"trashed": n, "failed": m, "errors": [{"gmail_message_id":..., "reason":...}]}
     failure_summary: Mapped[dict | None] = mapped_column(JSON)
 
@@ -77,10 +77,10 @@ class CleanupPlanItem(UUIDPrimaryKeyMixin, Base):
     action: Mapped[str] = mapped_column(String(24), default="MOVE_TO_TRASH")
     item_status: Mapped[str] = mapped_column(String(16), default="PENDING")
     failure_reason: Mapped[str | None] = mapped_column(String(512))
-    executed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    executed_at: Mapped[datetime | None] = mapped_column(UTCTimestamp())
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, nullable=False
+        UTCTimestamp(), default=utcnow, nullable=False
     )
 
     plan: Mapped[CleanupPlan] = relationship(back_populates="items")

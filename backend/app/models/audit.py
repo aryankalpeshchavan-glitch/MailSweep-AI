@@ -11,10 +11,10 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Index, String
+from sqlalchemy import JSON, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, UUIDPrimaryKeyMixin, utcnow
+from app.db.base import Base, UTCTimestamp, UUIDPrimaryKeyMixin, utcnow
 
 
 class AuditLog(UUIDPrimaryKeyMixin, Base):
@@ -34,5 +34,5 @@ class AuditLog(UUIDPrimaryKeyMixin, Base):
     request_id: Mapped[str | None] = mapped_column(String(64))
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, nullable=False
+        UTCTimestamp(), default=utcnow, nullable=False
     )

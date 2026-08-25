@@ -7,7 +7,6 @@ from datetime import datetime
 
 from sqlalchemy import (
     JSON,
-    DateTime,
     Float,
     ForeignKey,
     Index,
@@ -17,7 +16,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from app.db.base import Base, TimestampMixin, UTCTimestamp, UUIDPrimaryKeyMixin
 
 
 class AnalysisJob(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -41,9 +40,9 @@ class AnalysisJob(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     error_message: Mapped[str | None] = mapped_column(String(512))
 
     dispatcher_task_id: Mapped[str | None] = mapped_column(String(64))
-    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime | None] = mapped_column(UTCTimestamp())
+    completed_at: Mapped[datetime | None] = mapped_column(UTCTimestamp())
+    cancelled_at: Mapped[datetime | None] = mapped_column(UTCTimestamp())
 
 
 class Classification(UUIDPrimaryKeyMixin, TimestampMixin, Base):

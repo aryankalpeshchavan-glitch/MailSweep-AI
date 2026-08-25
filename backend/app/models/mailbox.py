@@ -13,7 +13,6 @@ from datetime import datetime
 from sqlalchemy import (
     JSON,
     Boolean,
-    DateTime,
     ForeignKey,
     Index,
     Integer,
@@ -22,7 +21,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from app.db.base import Base, TimestampMixin, UTCTimestamp, UUIDPrimaryKeyMixin
 from app.models.enums import EmailCategory
 from app.models.user import User  # noqa: F401 - registers mapper chain
 
@@ -37,7 +36,7 @@ class Mailbox(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     google_email_address: Mapped[str] = mapped_column(String(320))
     history_id: Mapped[str | None] = mapped_column(String(64))
-    last_analysis_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_analysis_at: Mapped[datetime | None] = mapped_column(UTCTimestamp())
     total_messages_cached: Mapped[int] = mapped_column(Integer, default=0)
 
     user: Mapped[User] = relationship()
@@ -66,7 +65,7 @@ class EmailMessage(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     sender_domain: Mapped[str | None] = mapped_column(String(255))
 
     subject: Mapped[str | None] = mapped_column(String(_SUBJECT_MAX_LEN))
-    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    received_at: Mapped[datetime | None] = mapped_column(UTCTimestamp())
     size_estimate: Mapped[int | None] = mapped_column(Integer)
 
     has_attachments: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -110,6 +109,6 @@ class EmailGroup(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     primary_sender_domain: Mapped[str | None] = mapped_column(String(255))
     primary_category: Mapped[EmailCategory | None] = mapped_column(String(48))
     message_count: Mapped[int] = mapped_column(Integer, default=0)
-    first_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    first_message_at: Mapped[datetime | None] = mapped_column(UTCTimestamp())
+    last_message_at: Mapped[datetime | None] = mapped_column(UTCTimestamp())
     sample_subjects: Mapped[list] = mapped_column(JSON, default=list)

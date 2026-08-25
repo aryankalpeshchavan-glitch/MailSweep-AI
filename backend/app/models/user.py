@@ -5,10 +5,10 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, Uuid
+from sqlalchemy import ForeignKey, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from app.db.base import Base, TimestampMixin, UTCTimestamp, UUIDPrimaryKeyMixin
 from app.models.enums import OAuthStatus
 
 
@@ -22,7 +22,7 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     #: Soft-delete timestamp. Personal data purge happens asynchronously;
     #: rows are never hard-deleted mid-request (keeps audit trails coherent).
-    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deleted_at: Mapped[datetime | None] = mapped_column(UTCTimestamp())
 
     oauth_connection: Mapped[OAuthConnection | None] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan",
@@ -42,8 +42,8 @@ class UserSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Uuid, ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(UTCTimestamp())
+    revoked_at: Mapped[datetime | None] = mapped_column(UTCTimestamp())
 
     user: Mapped[User] = relationship(back_populates="sessions")
 
@@ -73,15 +73,15 @@ class OAuthConnection(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     access_token_encrypted: Mapped[str | None] = mapped_column(Text)
     refresh_token_encrypted: Mapped[str | None] = mapped_column(Text)
     scope: Mapped[str | None] = mapped_column(Text)
-    token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    last_refreshed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    token_expires_at: Mapped[datetime | None] = mapped_column(UTCTimestamp())
+    last_refreshed_at: Mapped[datetime | None] = mapped_column(UTCTimestamp())
 
     status: Mapped[OAuthStatus] = mapped_column(
         String(16), default=OAuthStatus.ACTIVE, index=True
     )
     #: Truncated, secret-free description of the last provider-side failure.
     last_error: Mapped[str | None] = mapped_column(String(512))
-    connected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    connected_at: Mapped[datetime] = mapped_column(UTCTimestamp())
+    revoked_at: Mapped[datetime | None] = mapped_column(UTCTimestamp())
 
     user: Mapped[User] = relationship(back_populates="oauth_connection")

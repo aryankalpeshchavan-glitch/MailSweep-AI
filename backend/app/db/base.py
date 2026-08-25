@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
-from sqlalchemy import DateTime, MetaData
+from sqlalchemy import MetaData, types
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 NAMING_CONVENTION = {
@@ -30,6 +31,23 @@ def utcnow() -> datetime:
     return datetime.now(UTC)
 
 
+class UTCTimestamp(types.TypeDecorator):
+    """Timezone-aware UTC datetime column for BOTH backends.
+
+    PostgreSQL stores timestamptz natively; SQLite stores strings and hands
+    back NAIVE datetimes on read. This decorator re-attaches UTC on load so
+    every comparison in the codebase can assume awareness. One point of truth.
+    """
+
+    impl = types.DateTime(timezone=True)
+    cache_ok = True
+
+    def process_result_value(self, value: datetime | None, dialect: Any) -> datetime | None:
+        if value is not None and value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value
+
+
 class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
@@ -42,10 +60,10 @@ class UUIDPrimaryKeyMixin:
 
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, nullable=False, sort_order=900
+        UTCTimestamp(), default=utcnow, nullable=False, sort_order=900
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        UTCTimestamp(),
         default=utcnow,
         onupdate=utcnow,
         nullable=False,

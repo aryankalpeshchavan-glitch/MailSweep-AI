@@ -10,10 +10,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
+from app.api.routes.auth import router as auth_router
 from app.api.routes.health import router as health_router
 from app.core.config import Settings, get_settings
+from app.core.csrf import CsrfOriginMiddleware
 from app.core.errors import install_error_handlers
-from app.core.logging import RequestContextMiddleware, SecurityHeadersMiddleware, setup_logging
+from app.core.logging import (
+    RequestContextMiddleware,
+    SecurityHeadersMiddleware,
+    setup_logging,
+)
 from app.db.session import create_engine_and_sessionmaker
 
 
@@ -66,8 +72,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Shared state consumed by dependencies and routes.
     app.state.settings = resolved
 
-    # Middleware order matters: Starlette runs them in reverse registration,
-    # so security headers wrap CORS which wraps request-context.
+    # Middleware ordering: LAST registered = OUTERMOST. Effective chain
+    # (outer -> inner): CORS -> SecurityHeaders -> RequestContext -> CSRF -> app.
+    # CSRF sits inside RequestContext so its 403s still carry X-Request-ID.
+    app.add_middleware(
+        CsrfOriginMiddleware,
+        allowed_origins=[resolved.BASE_URL, *resolved.cors_allowed_origins],
+    )
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(
@@ -92,6 +103,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         }
 
     app.include_router(health_router)
+    app.include_router(auth_router)
     return app
 
 

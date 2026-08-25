@@ -43,12 +43,15 @@ class AppError(Exception):
         *,
         details: dict | list | None = None,
         code: str | None = None,
+        status_code: int | None = None,
     ) -> None:
         super().__init__(message or self.default_message)
         self.message = message or self.default_message
         self.details = details
         if code:
             self.code = code
+        if status_code:
+            self.status_code = status_code
 
 
 class NotFoundError(AppError):

@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: 080926e46e39
+Revision ID: b184b6d3c681
 Revises: 
-Create Date: 2026-08-24 20:27:47.646329
+Create Date: 2026-08-25 00:03:34.374002
 
 """
 from __future__ import annotations
@@ -12,8 +12,10 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
+from app.db.base import UTCTimestamp
 
-revision: str = '080926e46e39'
+
+revision: str = 'b184b6d3c681'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -26,9 +28,9 @@ def upgrade() -> None:
     sa.Column('email', sa.String(length=320), nullable=False),
     sa.Column('display_name', sa.String(length=255), nullable=True),
     sa.Column('avatar_url', sa.String(length=2048), nullable=True),
-    sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('deleted_at', UTCTimestamp(), nullable=True),
+    sa.Column('created_at', UTCTimestamp(), nullable=False),
+    sa.Column('updated_at', UTCTimestamp(), nullable=False),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_users'))
     )
     with op.batch_alter_table('users', schema=None) as batch_op:
@@ -42,7 +44,7 @@ def upgrade() -> None:
     sa.Column('object_id', sa.String(length=64), nullable=True),
     sa.Column('detail', sa.JSON(), nullable=False),
     sa.Column('request_id', sa.String(length=64), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('created_at', UTCTimestamp(), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], name=op.f('fk_audit_logs_user_id_users'), ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_audit_logs'))
     )
@@ -59,8 +61,8 @@ def upgrade() -> None:
     sa.Column('conditions', sa.JSON(), nullable=False),
     sa.Column('priority', sa.Integer(), nullable=False),
     sa.Column('enabled', sa.Boolean(), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('created_at', UTCTimestamp(), nullable=False),
+    sa.Column('updated_at', UTCTimestamp(), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], name=op.f('fk_cleanup_rules_user_id_users'), ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_cleanup_rules')),
     sa.UniqueConstraint('user_id', 'name', name='uq_rule_name_per_user')
@@ -73,10 +75,10 @@ def upgrade() -> None:
     sa.Column('user_id', sa.Uuid(), nullable=False),
     sa.Column('google_email_address', sa.String(length=320), nullable=False),
     sa.Column('history_id', sa.String(length=64), nullable=True),
-    sa.Column('last_analysis_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('last_analysis_at', UTCTimestamp(), nullable=True),
     sa.Column('total_messages_cached', sa.Integer(), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('created_at', UTCTimestamp(), nullable=False),
+    sa.Column('updated_at', UTCTimestamp(), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], name=op.f('fk_mailboxes_user_id_users'), ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_mailboxes'))
     )
@@ -92,14 +94,14 @@ def upgrade() -> None:
     sa.Column('access_token_encrypted', sa.Text(), nullable=True),
     sa.Column('refresh_token_encrypted', sa.Text(), nullable=True),
     sa.Column('scope', sa.Text(), nullable=True),
-    sa.Column('token_expires_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('last_refreshed_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('token_expires_at', UTCTimestamp(), nullable=True),
+    sa.Column('last_refreshed_at', UTCTimestamp(), nullable=True),
     sa.Column('status', sa.String(length=16), nullable=False),
     sa.Column('last_error', sa.String(length=512), nullable=True),
-    sa.Column('connected_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('revoked_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('connected_at', UTCTimestamp(), nullable=False),
+    sa.Column('revoked_at', UTCTimestamp(), nullable=True),
+    sa.Column('created_at', UTCTimestamp(), nullable=False),
+    sa.Column('updated_at', UTCTimestamp(), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], name=op.f('fk_oauth_connections_user_id_users'), ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_oauth_connections')),
     sa.UniqueConstraint('google_sub', name=op.f('uq_oauth_connections_google_sub'))
@@ -112,10 +114,10 @@ def upgrade() -> None:
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('user_id', sa.Uuid(), nullable=False),
     sa.Column('token_hash', sa.String(length=64), nullable=False),
-    sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('revoked_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('expires_at', UTCTimestamp(), nullable=False),
+    sa.Column('revoked_at', UTCTimestamp(), nullable=True),
+    sa.Column('created_at', UTCTimestamp(), nullable=False),
+    sa.Column('updated_at', UTCTimestamp(), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], name=op.f('fk_user_sessions_user_id_users'), ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_user_sessions'))
     )
@@ -133,11 +135,11 @@ def upgrade() -> None:
     sa.Column('error_code', sa.String(length=64), nullable=True),
     sa.Column('error_message', sa.String(length=512), nullable=True),
     sa.Column('dispatcher_task_id', sa.String(length=64), nullable=True),
-    sa.Column('started_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('cancelled_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('started_at', UTCTimestamp(), nullable=True),
+    sa.Column('completed_at', UTCTimestamp(), nullable=True),
+    sa.Column('cancelled_at', UTCTimestamp(), nullable=True),
+    sa.Column('created_at', UTCTimestamp(), nullable=False),
+    sa.Column('updated_at', UTCTimestamp(), nullable=False),
     sa.ForeignKeyConstraint(['mailbox_id'], ['mailboxes.id'], name=op.f('fk_analysis_jobs_mailbox_id_mailboxes'), ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], name=op.f('fk_analysis_jobs_user_id_users'), ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_analysis_jobs'))
@@ -154,13 +156,13 @@ def upgrade() -> None:
     sa.Column('status', sa.String(length=32), nullable=False),
     sa.Column('message_count', sa.Integer(), nullable=False),
     sa.Column('idempotency_key', sa.String(length=64), nullable=True),
-    sa.Column('approved_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('execution_started_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('cancelled_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('approved_at', UTCTimestamp(), nullable=True),
+    sa.Column('execution_started_at', UTCTimestamp(), nullable=True),
+    sa.Column('completed_at', UTCTimestamp(), nullable=True),
+    sa.Column('cancelled_at', UTCTimestamp(), nullable=True),
     sa.Column('failure_summary', sa.JSON(), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('created_at', UTCTimestamp(), nullable=False),
+    sa.Column('updated_at', UTCTimestamp(), nullable=False),
     sa.ForeignKeyConstraint(['mailbox_id'], ['mailboxes.id'], name=op.f('fk_cleanup_plans_mailbox_id_mailboxes'), ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], name=op.f('fk_cleanup_plans_user_id_users'), ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_cleanup_plans')),
@@ -178,11 +180,11 @@ def upgrade() -> None:
     sa.Column('primary_sender_domain', sa.String(length=255), nullable=True),
     sa.Column('primary_category', sa.String(length=48), nullable=True),
     sa.Column('message_count', sa.Integer(), nullable=False),
-    sa.Column('first_message_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('last_message_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('first_message_at', UTCTimestamp(), nullable=True),
+    sa.Column('last_message_at', UTCTimestamp(), nullable=True),
     sa.Column('sample_subjects', sa.JSON(), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('created_at', UTCTimestamp(), nullable=False),
+    sa.Column('updated_at', UTCTimestamp(), nullable=False),
     sa.ForeignKeyConstraint(['mailbox_id'], ['mailboxes.id'], name=op.f('fk_email_groups_mailbox_id_mailboxes'), ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_email_groups')),
     sa.UniqueConstraint('mailbox_id', 'group_key', name='uq_group_key_per_mailbox')
@@ -199,7 +201,7 @@ def upgrade() -> None:
     sa.Column('sender_name', sa.String(length=255), nullable=True),
     sa.Column('sender_domain', sa.String(length=255), nullable=True),
     sa.Column('subject', sa.String(length=500), nullable=True),
-    sa.Column('received_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('received_at', UTCTimestamp(), nullable=True),
     sa.Column('size_estimate', sa.Integer(), nullable=True),
     sa.Column('has_attachments', sa.Boolean(), nullable=False),
     sa.Column('attachment_count', sa.Integer(), nullable=False),
@@ -208,8 +210,8 @@ def upgrade() -> None:
     sa.Column('has_list_unsubscribe', sa.Boolean(), nullable=False),
     sa.Column('label_ids', sa.JSON(), nullable=False),
     sa.Column('group_id', sa.Uuid(), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('created_at', UTCTimestamp(), nullable=False),
+    sa.Column('updated_at', UTCTimestamp(), nullable=False),
     sa.ForeignKeyConstraint(['group_id'], ['email_groups.id'], name=op.f('fk_email_messages_group_id_email_groups'), ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['mailbox_id'], ['mailboxes.id'], name=op.f('fk_email_messages_mailbox_id_mailboxes'), ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_email_messages')),
@@ -230,8 +232,8 @@ def upgrade() -> None:
     sa.Column('reasons', sa.JSON(), nullable=False),
     sa.Column('ai_reasoning', sa.Text(), nullable=True),
     sa.Column('classifier_version', sa.String(length=32), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('created_at', UTCTimestamp(), nullable=False),
+    sa.Column('updated_at', UTCTimestamp(), nullable=False),
     sa.ForeignKeyConstraint(['message_id'], ['email_messages.id'], name=op.f('fk_classifications_message_id_email_messages'), ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_classifications'))
     )
@@ -248,8 +250,8 @@ def upgrade() -> None:
     sa.Column('action', sa.String(length=24), nullable=False),
     sa.Column('item_status', sa.String(length=16), nullable=False),
     sa.Column('failure_reason', sa.String(length=512), nullable=True),
-    sa.Column('executed_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('executed_at', UTCTimestamp(), nullable=True),
+    sa.Column('created_at', UTCTimestamp(), nullable=False),
     sa.ForeignKeyConstraint(['message_id'], ['email_messages.id'], name=op.f('fk_cleanup_plan_items_message_id_email_messages'), ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['plan_id'], ['cleanup_plans.id'], name=op.f('fk_cleanup_plan_items_plan_id_cleanup_plans'), ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_cleanup_plan_items')),
@@ -270,8 +272,8 @@ def upgrade() -> None:
     sa.Column('reasons', sa.JSON(), nullable=False),
     sa.Column('contributing_rule_ids', sa.JSON(), nullable=False),
     sa.Column('status', sa.String(length=16), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('created_at', UTCTimestamp(), nullable=False),
+    sa.Column('updated_at', UTCTimestamp(), nullable=False),
     sa.ForeignKeyConstraint(['mailbox_id'], ['mailboxes.id'], name=op.f('fk_recommendations_mailbox_id_mailboxes'), ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['message_id'], ['email_messages.id'], name=op.f('fk_recommendations_message_id_email_messages'), ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_recommendations'))
@@ -288,8 +290,8 @@ def upgrade() -> None:
     sa.Column('decision', sa.String(length=16), nullable=False),
     sa.Column('context', sa.String(length=16), nullable=False),
     sa.Column('plan_id', sa.Uuid(), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('created_at', UTCTimestamp(), nullable=False),
+    sa.Column('updated_at', UTCTimestamp(), nullable=False),
     sa.ForeignKeyConstraint(['message_id'], ['email_messages.id'], name=op.f('fk_user_decisions_message_id_email_messages'), ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['plan_id'], ['cleanup_plans.id'], name=op.f('fk_user_decisions_plan_id_cleanup_plans'), ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], name=op.f('fk_user_decisions_user_id_users'), ondelete='CASCADE'),

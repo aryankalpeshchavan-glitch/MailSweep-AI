@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Any
 
 # Make the backend package importable regardless of invocation directory.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -18,13 +19,21 @@ from sqlalchemy import engine_from_config, pool  # noqa: E402
 
 import app.models  # noqa: F401,E402 - importing registers every ORM mapper
 from app.core.config import get_settings  # noqa: E402
-from app.db.base import Base  # noqa: E402
+from app.db.base import Base, UTCTimestamp  # noqa: E402
 
 config = context.config
 # Logging is configured by the application itself (app.core.logging);
 # alembic's fileConfig-based logging setup is intentionally not used.
 
 target_metadata = Base.metadata
+
+
+def _render_item(type_: str, obj: Any, autogen_context: Any):  # noqa: ANN202
+    """Teach autogenerate to render our custom column types portably."""
+    if type_ == "type" and isinstance(obj, UTCTimestamp):
+        autogen_context.imports.add("from app.db.base import UTCTimestamp")
+        return "UTCTimestamp()"
+    return False
 
 
 def _database_url() -> str:
@@ -38,6 +47,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         compare_type=True,
+        render_item=_render_item,
         render_as_batch=True,
     )
     with context.begin_transaction():
@@ -54,6 +64,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
+            render_item=_render_item,
             render_as_batch=True,
         )
         with context.begin_transaction():
