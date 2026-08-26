@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Fail the whole workflow if any job is cancelled or fails.
+concurrency:
+  group: ci-${{ github.ref }}
+  # Cancel in-progress runs for the same ref (queued PRs).
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.14"
+  BACKEND_DIR: backend
+
+jobs:
+  # ---------------------------------------------------------------- lint
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install ruff
+        run: pip install ruff==0.11.13
+
+      - name: Lint
+        run: ruff check app tests
+
+  # ---------------------------------------------------------------- test
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: mailsweep
+          POSTGRES_PASSWORD: test-pg-password
+          POSTGRES_DB: mailsweep_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U mailsweep"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            ${{ env.BACKEND_DIR }}/requirements.txt
+            ${{ env.BACKEND_DIR }}/requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ${{ env.BACKEND_DIR }}/requirements.txt
+          pip install -r ${{ env.BACKEND_DIR }}/requirements-dev.txt
+          pip install -e ${{ env.BACKEND_DIR }}
+
+      - name: Run tests with coverage
+        working-directory: ${{ env.BACKEND_DIR }}
+        env:
+          DATABASE_URL: postgresql+pg8000://mailsweep:test-pg-password@localhost:5432/mailsweep_test
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: test-secret-key-for-ci-${{ github.sha }}
+          GOOGLE_CLIENT_ID: ci-test-client-id
+          GOOGLE_CLIENT_SECRET: ci-test-client-secret
+        run: |
+          alembic upgrade head
+          pytest --cov=app --cov-report=term-missing
+
+  # ---------------------------------------------------------------- smoke
+  # Build the Docker image to catch Dockerfile regressions early.
+  smoke:
+    name: Docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: false
+          load: true

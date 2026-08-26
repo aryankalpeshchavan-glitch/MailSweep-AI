@@ -1,0 +1,81 @@
+# docker-compose.yml - local development stack: api + worker + postgres + redis
+#
+# Copy .env.example -> .env and set real secrets before running.
+# In development, API_MAX_WORKERS=0 runs jobs inline; set >0 to use Celery.
+#
+#   docker compose up --build
+#   docker compose exec api python -m alembic upgrade head
+#   docker compose exec api python -m pytest
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mailsweep
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev-password-change-me}
+      POSTGRES_DB: mailsweep
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mailsweep"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Compose-resolved service URLs (override .env for local dev):
+      DATABASE_URL: postgresql://mailsweep:${POSTGRES_PASSWORD:-dev-password-change-me}@postgres:5432/mailsweep
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      # Mount source for live reload in development; omit in prod.
+      - ./backend:/app:cached
+    command: >
+      /opt/venv/bin/uvicorn app.main:app
+      --host 0.0.0.0 --port 8000 --reload
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://mailsweep:${POSTGRES_PASSWORD:-dev-password-change-me}@postgres:5432/mailsweep
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app:cached
+    command: /opt/venv/bin/celery -A app.workers.celery_app:get_celery_app worker -l info
+
+volumes:
+  postgres_data:
+  redis_data:

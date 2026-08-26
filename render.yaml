@@ -1,0 +1,92 @@
+# render.yaml - single-command deployment blueprint for Render.com
+#
+#   render deploy --service-name api
+#   or push to main and let GitHub auto-deploy.
+#
+# Services:
+#   api    -> FastAPI web service (gunicorn + uvicorn workers)
+#   worker -> Celery worker for background jobs (analysis + cleanup)
+#
+# Managed add-ons are declared below; Render provisions them automatically.
+# All env vars come from your Render dashboard secrets (never committed).
+
+services:
+  - type: web
+    name: mailsweep-api
+    region: oregon
+    plan: free
+    env: docker
+    dockerfilePath: backend/Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: SECRET_KEY
+        fromSecret: SECRET_KEY
+      - key: BASE_URL
+        value: https://mailsweep-api.onrender.com
+      - key: FRONTEND_ORIGINS
+        fromSecret: FRONTEND_ORIGINS
+      - key: GOOGLE_CLIENT_ID
+        fromSecret: GOOGLE_CLIENT_ID
+      - key: GOOGLE_CLIENT_SECRET
+        fromSecret: GOOGLE_CLIENT_SECRET
+      - key: ANTHROPIC_API_KEY
+        fromSecret: ANTHROPIC_API_KEY
+      - key: ANTHROPIC_MODEL
+        value: claude-3-5-haiku-latest
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mailsweep-db
+          property: connectionString
+      - key: REDIS_URL
+        fromRedis:
+          name: mailsweep-redis
+          property: connectionString
+    disk:
+      name: uploads
+      mountPath: /tmp/uploads
+      sizeGB: 0.1
+
+  - type: worker
+    name: mailsweep-worker
+    region: oregon
+    plan: starter
+    env: docker
+    dockerfilePath: backend/Dockerfile
+    startCommand: /opt/venv/bin/celery -A app.workers.celery_app:get_celery_app worker -l info
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: SECRET_KEY
+        fromSecret: SECRET_KEY
+      - key: BASE_URL
+        value: https://mailsweep-api.onrender.com
+      - key: GOOGLE_CLIENT_ID
+        fromSecret: GOOGLE_CLIENT_ID
+      - key: GOOGLE_CLIENT_SECRET
+        fromSecret: GOOGLE_CLIENT_SECRET
+      - key: ANTHROPIC_API_KEY
+        fromSecret: ANTHROPIC_API_KEY
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mailsweep-db
+          property: connectionString
+      - key: REDIS_URL
+        fromRedis:
+          name: mailsweep-redis
+          property: connectionString
+
+databases:
+  - name: mailsweep-db
+    region: oregon
+    plan: free
+    postgresVersion: 16
+
+redis:
+  - name: mailsweep-redis
+    region: oregon
+    plan: free
+    redisVersion: 7
+
