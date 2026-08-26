@@ -37,7 +37,12 @@ _BATCH_SIZE = 200
 
 
 def run_mailbox_analysis(
-    db: Session, *, job_id: str, gmail: GmailClientProtocol, settings: Settings
+    db: Session,
+    *,
+    job_id: str,
+    gmail: GmailClientProtocol,
+    settings: Settings,
+    ai_classifier=None,
 ) -> None:
     job_pk = uuid.UUID(str(job_id))
     job = db.get(AnalysisJob, job_pk)
@@ -63,7 +68,10 @@ def run_mailbox_analysis(
             return
 
         _transition(db, job, AnalysisJobStatus.RUNNING, AnalysisJobStatus.CLASSIFYING)
-        stored = _upsert_messages_and_classifications(db, mailbox.id, metas)
+        stored = _upsert_messages_and_classifications(
+            db, mailbox.id, metas, ai_classifier,
+            ai_budget=getattr(settings, "AI_MAX_MESSAGES_PER_JOB", 0),
+        )
         if _is_cancelled(db, job_pk):
             return
 
@@ -163,7 +171,9 @@ def _fetch_metadata(gmail, message_ids, job, db) -> list:
     return metas
 
 
-def _upsert_messages_and_classifications(db: Session, mailbox_id, metas: list) -> dict:
+def _upsert_messages_and_classifications(
+    db, mailbox_id, metas, ai_classifier=None, ai_budget: int = 0
+) -> dict:
     """Insert/update EmailMessage rows + their deterministic classifications."""
     gmail_ids = [m.gmail_id for m in metas]
     existing = {
@@ -200,18 +210,29 @@ def _upsert_messages_and_classifications(db: Session, mailbox_id, metas: list) -
 
     db.flush()
 
+    remaining_ai_calls = ai_budget
     for gmail_id, row in stored.items():
-        result = classify(meta_by_id[gmail_id])
+        meta = meta_by_id[gmail_id]
+        result = classify(meta)
+        category, confidence, ai_reasoning = result.category, result.confidence, None
+        if ai_classifier is not None and remaining_ai_calls > 0:
+            from app.ai.service import resolve_with_ai
+
+            category, confidence, ai_reasoning = resolve_with_ai(
+                ai_classifier, meta, category=result.category, confidence=result.confidence
+            )
+            if ai_reasoning is not None:
+                remaining_ai_calls -= 1
         classification = db.query(Classification).filter_by(message_id=row.id).one_or_none()
         if classification is None:
             classification = Classification(message_id=row.id)
             db.add(classification)
-        classification.category = result.category
-        classification.source = "RULE"
-        classification.confidence = result.confidence
+        classification.category = category
+        classification.source = "AI" if ai_reasoning else "RULE"
+        classification.confidence = confidence
         classification.risk = result.risk
         classification.reasons = result.reasons
-        classification.ai_reasoning = None
+        classification.ai_reasoning = ai_reasoning
         classification.classifier_version = CLASSIFIER_VERSION
 
     db.commit()

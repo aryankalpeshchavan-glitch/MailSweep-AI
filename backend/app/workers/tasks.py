@@ -42,7 +42,12 @@ def execute_analysis_job(job_id: str) -> None:
         )
         gmail = GoogleGmailClient(access_token, settings)
         try:
-            run_mailbox_analysis(db, job_id=job_pk, gmail=gmail, settings=settings)
+            from app.ai.service import build_classifier
+
+            run_mailbox_analysis(
+                db, job_id=job_pk, gmail=gmail, settings=settings,
+                ai_classifier=build_classifier(settings),
+            )
         finally:
             gmail.close()
     finally:
