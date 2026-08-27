@@ -1,0 +1,110 @@
+/* ============================================================================
+   MailSweep AI — Obsidian Orbit design tokens
+   ----------------------------------------------------------------------------
+   Primary visual reference: stitch_export/.../obsidian_orbit/DESIGN.md
+   Rebuilt by hand, not copied — values kept, structure modernized.
+
+   Identity:
+     Obsidian surfaces   (deep black voids + luminance layering)
+     Data Blue           (analysis / intelligence accents)
+     Safety Amber        (destructive / high-focus actions)
+     Neural Violet       (AI-categorized data)
+     Space Grotesk (display) · Inter (body) · JetBrains Mono (metadata)
+     Precision borders · structural minimalism · cinematic spacing
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* ---- Obsidian surface ladder (luminance layering, no drop shadows) ---- */
+  --obsidian-bg: #000000;
+  --color-surface: #131313;
+  --color-surface-dim: #131313;
+  --color-surface-bright: #393939;
+  --color-surface-lowest: #0e0e0e;
+  --color-surface-low: #1c1b1b;
+  --color-surface: #201f1f;
+  --color-surface-high: #2a2a2a;
+  --color-surface-highest: #353534;
+
+  --color-on-surface: #e5e2e1;
+  --color-on-surface-variant: #a0a0a0;
+  --color-outline: #849495;
+  --color-outline-variant: #3b494b;
+
+  /* ---- Data Blue (intelligence / accents) ---- */
+  --data-blue: #00dbe9;
+  --data-blue-dim: #7df4ff;
+  --data-blue-bright: #dbfcff;
+  --data-blue-container: #00f0ff;
+  --data-blue-on-container: #00363a;
+
+  /* ---- Safety Amber (destructive / high-focus) ---- */
+  --safety-amber: #ffc080;
+  --safety-amber-container: #fe9800;
+  --safety-amber-on-container: #643900;
+
+  /* ---- Neural Violet (AI-sourced data) ---- */
+  --neural-violet: #e9d0ff;
+  --neural-violet-container: #8523dd;
+  --neural-violet-on-container: #480081;
+
+  /* ---- Semantic text ---- */
+  --text-white: #ffffff;
+  --text-muted: #a0a0a0;
+  --text-faint: #6b6b6b;
+
+  /* ---- Status ---- */
+  --status-success: #00f0ff;
+  --status-warn: var(--safety-amber);
+  --status-error: #ffb4ab;
+
+  /* ---- Elevation (luminance layering, NOT shadows) ---- */
+  --panel-bg: #0a0a0a;
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --panel-border-strong: rgba(255, 255, 255, 0.2);
+  --ai-glow: 0 0 0 2px rgba(133, 35, 221, 0.3);
+
+  /* ---- Radii ---- */
+  --radius-sm: 0.125rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.75rem;
+  --radius-full: 9999px;
+
+  /* ---- Typography families (loaded in index.html) ---- */
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* ---- Motion ---- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 160ms;
+  --dur-med: 320ms;
+  --dur-slow: 700ms;
+
+  --z-root: 0;
+  --z-theater: 1;
+  --z-scenes: 5;
+  --z-ui: 10;
+  --z-overlay: 40;
+  --z-toast: 50;
+}
+
+/* Reduced motion: flatten duration + disable decorative animation. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-med: 0ms;
+    --dur-slow: 0ms;
+  }
+}
+
+/* The 2D fallback palette scopes itself; keep it close to the real scene. */
+html[data-3d="off"] .mail-universe-fallback {
+  background:
+    radial-gradient(ellipse at 20% 30%, rgba(0, 240, 255, 0.08), transparent 55%),
+    radial-gradient(ellipse at 80% 20%, rgba(133, 35, 221, 0.06), transparent 50%),
+    var(--obsidian-bg);
+}

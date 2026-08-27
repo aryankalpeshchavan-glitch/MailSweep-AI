@@ -41,3 +41,6 @@ Thumbs.db
 # ---- Logs ----
 *.log
 logs/
+
+# ---- Design source (never commit raw Stitch export) ----
+stitch_export/

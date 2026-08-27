@@ -1,0 +1,22 @@
+# ---- MailSweep frontend (Vite + React + TS) ----
+node_modules/
+dist/
+*.local
+.vite/
+
+# ---- Environment ----
+.env
+.env.local
+.env.*.local
+
+# ---- Editor / OS ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# ---- Test / lint caches ----
+coverage/
+*.log
+*.tsbuildinfo
