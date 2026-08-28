@@ -10,8 +10,9 @@ interface SceneCanvasProps {
 }
 
 /**
- * R3F canvas tuned for the cinematic background: transparent GL, fixed camera,
- * capped DPR, and a render loop that halts when the tab is hidden.
+ * R3F canvas tuned for the cinematic background: transparent GL, capped DPR,
+ * and a render loop that halts when the tab is hidden. The camera is fully
+ * driven by CameraRig once mounted — this only seeds position + near/far.
  */
 export function SceneCanvas({ profile, active, children }: SceneCanvasProps) {
   return (
@@ -24,7 +25,7 @@ export function SceneCanvas({ profile, active, children }: SceneCanvasProps) {
         powerPreference: "high-performance",
         stencil: false,
       }}
-      camera={{ position: [0, 0, 16], fov: 60, near: 0.1, far: 120 }}
+      camera={{ position: [14, 0, 14], fov: 55, near: 0.1, far: 220 }}
       style={{ position: "absolute", inset: 0 }}
     >
       {children}
