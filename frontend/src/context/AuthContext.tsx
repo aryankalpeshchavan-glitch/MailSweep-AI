@@ -1,31 +1,9 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { authKeys, useAuthStatus } from "@/api/queries";
 import { postLogout } from "@/api/endpoints";
 import { SESSION_EXPIRED_EVENT } from "@/lib/apiClient";
-import type { AuthStatus } from "@/types/api";
-
-interface AuthCtx {
-  /** undefined while the initial status query is in flight. */
-  status: AuthStatus | undefined;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  /** currently signed-in display name (for the shell). */
-  displayName: string | null;
-  /** revoke the session cookie server-side + clear local state. */
-  logout: () => Promise<void>;
-  /** is the Google/Gmail account currently connected. */
-  gmailConnected: boolean;
-}
-
-const AuthContext = createContext<AuthCtx | null>(null);
+import { AuthContext, type AuthCtx } from "@/context/auth-context";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: status, isError } = useAuthStatus();
@@ -68,8 +46,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth(): AuthCtx {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within <AuthProvider>");
-  return ctx;
-}

@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/context/useAuth";
 import { Icon, type IconName } from "@/components/Icon";
 import { cn } from "@/lib/cn";
 

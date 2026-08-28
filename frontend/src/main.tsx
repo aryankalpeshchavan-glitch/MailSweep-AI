@@ -31,7 +31,7 @@ const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 if (reduced) document.documentElement.classList.add("reduce-motion");
 document.documentElement.dataset.motion = reduced ? "reduced" : "full";
 
-function Root() {
+export function Root() {
   return (
     <StrictMode>
       <ErrorBoundary>

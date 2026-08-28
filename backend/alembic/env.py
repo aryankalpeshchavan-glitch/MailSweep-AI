@@ -14,12 +14,11 @@ from typing import Any
 # Make the backend package importable regardless of invocation directory.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from alembic import context  # noqa: E402
-from sqlalchemy import engine_from_config, pool  # noqa: E402
-
 import app.models  # noqa: F401,E402 - importing registers every ORM mapper
+from alembic import context  # noqa: E402
 from app.core.config import get_settings  # noqa: E402
 from app.db.base import Base, UTCTimestamp  # noqa: E402
+from sqlalchemy import engine_from_config, pool  # noqa: E402
 
 config = context.config
 # Logging is configured by the application itself (app.core.logging);

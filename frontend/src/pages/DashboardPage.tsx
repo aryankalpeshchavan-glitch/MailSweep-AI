@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { startAnalysis } from "@/api/endpoints";
 import { useAnalysisJobPoll, useMailboxSummary } from "@/api/queries";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/context/useAuth";
 import { ApiError } from "@/lib/apiClient";
 import { formatDate, formatNumber, humanize } from "@/lib/format";
 import { DataPanel, EmptyState, ErrorState, ProgressBar, Spinner, StatCard } from "@/components/ui";

@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import type { ReactNode } from "react";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/context/useAuth";
 import { AuthenticatedLayout } from "@/layouts/AuthenticatedLayout";
 import { PublicLayout } from "@/layouts/PublicLayout";
 import { MailUniversePage } from "@/pages/LandingPage";
