@@ -130,7 +130,12 @@ def update_rule(
     }
 
 
-@router.delete("/{rule_id}", status_code=204, summary="Delete a rule")
+@router.delete(
+    "/{rule_id}",
+    status_code=204,
+    response_model=None,  # explicit: 204 must have no body; skips broken '-> None' inference
+    summary="Delete a rule",
+)
 def delete_rule(
     rule_id: uuid.UUID,
     db: Session = Depends(get_db),
