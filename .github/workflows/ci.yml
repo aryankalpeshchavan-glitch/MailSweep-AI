@@ -21,6 +21,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -33,12 +34,14 @@ jobs:
         run: pip install ruff==0.11.13
 
       - name: Lint
+        working-directory: ${{ env.BACKEND_DIR }}
         run: ruff check app tests
 
   # ---------------------------------------------------------------- test
   test:
     name: Test
     runs-on: ubuntu-latest
+
     services:
       postgres:
         image: postgres:16-alpine
@@ -52,10 +55,15 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+
       redis:
         image: redis:7-alpine
         ports: ["6379:6379"]
-        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 5
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -76,10 +84,9 @@ jobs:
           pip install -r ${{ env.BACKEND_DIR }}/requirements-dev.txt
         # Note: intentionally NOT `pip install -e backend` — pyproject.toml has no
         # [build-system]/[project] table, so setuptools' flat-layout auto-discovery
-        # finds two top-level packages (app, alembic) and refuses to build,
-        # failing this whole job. It's also unnecessary: alembic/env.py inserts
-        # the backend dir onto sys.path itself, and pytest resolves `app` the
-        # same way from the `working-directory: backend` below.
+        # finds two top-level packages (app, alembic) and refuses to build.
+        # The editable install is unnecessary because the test job runs from
+        # the backend directory.
 
       - name: Run tests with coverage
         working-directory: ${{ env.BACKEND_DIR }}
@@ -98,6 +105,7 @@ jobs:
   smoke:
     name: Docker build
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
