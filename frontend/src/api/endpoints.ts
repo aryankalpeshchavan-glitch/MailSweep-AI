@@ -1,4 +1,4 @@
-import { apiFetch, qs } from "@/lib/apiClient";
+import { API_BASE, apiFetch, qs } from "@/lib/apiClient";
 import type {
   AnalysisJob,
   AnalysisStartResponse,
@@ -39,7 +39,7 @@ export const postGoogleDisconnect = () =>
  * follows a redirect that eventually lands back on the frontend.
  */
 export const buildGoogleLoginUrl = (redirectTo = "/") =>
-  `/api/auth/google/login?redirect_to=${encodeURIComponent(redirectTo)}`;
+  `${API_BASE}/api/auth/google/login?redirect_to=${encodeURIComponent(redirectTo)}`;
 
 // ---------------------------------------------------------------- analysis
 export const startAnalysis = () =>
