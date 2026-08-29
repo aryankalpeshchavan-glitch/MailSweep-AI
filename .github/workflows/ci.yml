@@ -74,7 +74,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r ${{ env.BACKEND_DIR }}/requirements.txt
           pip install -r ${{ env.BACKEND_DIR }}/requirements-dev.txt
-          pip install -e ${{ env.BACKEND_DIR }}
+        # Note: intentionally NOT `pip install -e backend` — pyproject.toml has no
+        # [build-system]/[project] table, so setuptools' flat-layout auto-discovery
+        # finds two top-level packages (app, alembic) and refuses to build,
+        # failing this whole job. It's also unnecessary: alembic/env.py inserts
+        # the backend dir onto sys.path itself, and pytest resolves `app` the
+        # same way from the `working-directory: backend` below.
 
       - name: Run tests with coverage
         working-directory: ${{ env.BACKEND_DIR }}

@@ -3,6 +3,7 @@
 #   pip freeze > constraints.lock && pip install -r requirements.txt -c constraints.lock
 fastapi>=0.115
 uvicorn[standard]>=0.30
+gunicorn>=23.0          # production WSGI/ASGI process manager (see backend/Dockerfile CMD)
 pydantic>=2.7
 pydantic-settings>=2.3
 
