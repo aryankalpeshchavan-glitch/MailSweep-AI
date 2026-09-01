@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 import redis as redis_lib
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 
 from app import __version__
 from app.api.routes.analysis import router as analysis_router
@@ -32,13 +33,14 @@ from app.db.session import create_engine_and_sessionmaker
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Create/teardown infrastructure clients.
+    """Create/teardown infrastructure clients."""
 
-    Deliberately done at startup (not import time) so importing this module is
-    side-effect free - important for Alembic, workers and tests.
-    """
     settings: Settings = app.state.settings
-    engine, sessionmaker = create_engine_and_sessionmaker(settings.normalized_database_url)
+
+    engine, sessionmaker = create_engine_and_sessionmaker(
+        settings.normalized_database_url
+    )
+
     app.state.engine = engine
     app.state.sessionmaker = sessionmaker
 
@@ -50,7 +52,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             socket_timeout=2,
         )
     else:
-        # Development/test: no broker. Jobs run via the inline dispatcher.
+        # Development/test: no broker.
         app.state.redis = None
 
     yield
@@ -58,13 +60,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if app.state.redis is not None:
         try:
             app.state.redis.close()
-        except Exception:  # noqa: BLE001 - shutdown must never raise
+        except Exception:  # noqa: BLE001
             pass
+
     engine.dispose()
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     resolved = settings or get_settings()
+
     setup_logging(resolved.LOG_LEVEL)
 
     app = FastAPI(
@@ -79,26 +83,48 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Shared state consumed by dependencies and routes.
     app.state.settings = resolved
 
-    # Middleware ordering: LAST registered = OUTERMOST. Effective chain
-    # (outer -> inner): CORS -> SecurityHeaders -> RequestContext -> CSRF -> app.
-    # CSRF sits inside RequestContext so its 403s still carry X-Request-ID.
+    # ------------------------------------------------------------------
+    # Middleware
+    # ------------------------------------------------------------------
+
     app.add_middleware(
         CsrfOriginMiddleware,
-        allowed_origins=[resolved.BASE_URL, *resolved.cors_allowed_origins],
+        allowed_origins=[
+            resolved.BASE_URL,
+            *resolved.cors_allowed_origins,
+        ],
     )
+
     app.add_middleware(RequestContextMiddleware)
+
     app.add_middleware(SecurityHeadersMiddleware)
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=resolved.cors_allowed_origins,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+        allow_methods=[
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+            "OPTIONS",
+        ],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "X-Request-ID",
+        ],
         expose_headers=["X-Request-ID"],
         max_age=600,
     )
 
     install_error_handlers(app)
+
+    # ------------------------------------------------------------------
+    # Root
+    # ------------------------------------------------------------------
 
     @app.get("/", include_in_schema=False)
     def root() -> dict:
@@ -109,6 +135,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "health": "/api/health",
         }
 
+    # ------------------------------------------------------------------
+    # Google Search Console verification
+    # ------------------------------------------------------------------
+
+    @app.get(
+        "/google0134155178fa519f.html",
+        include_in_schema=False,
+        response_class=PlainTextResponse,
+    )
+    def google_site_verification() -> str:
+        return "google-site-verification: google0134155178fa519f.html"
+
+    # ------------------------------------------------------------------
+    # API routers
+    # ------------------------------------------------------------------
+
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(cleanup_router)
@@ -118,6 +160,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(recommendations_router)
     app.include_router(rules_router)
     app.include_router(audit_router)
+
     return app
 
 
