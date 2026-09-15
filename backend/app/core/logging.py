@@ -166,7 +166,7 @@ class SecurityHeadersMiddleware:
     _DOCS_CSP = (
         b"default-src 'self'; "
         b"script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-        b"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        b"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "
         b"font-src 'self' https://fonts.gstatic.com; "
         b"img-src 'self' data: https://fastapi.tiangolo.com; "
         b"connect-src 'self'; "
