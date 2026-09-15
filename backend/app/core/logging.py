@@ -150,32 +150,63 @@ class RequestContextMiddleware:
 
 
 class SecurityHeadersMiddleware:
-    """Conservative security headers appropriate for a JSON API."""
+    """Security headers for API responses and FastAPI documentation pages."""
 
-    _HEADERS: Iterable[tuple[bytes, bytes]] = (
+    _BASE_HEADERS: Iterable[tuple[bytes, bytes]] = (
         (b"x-content-type-options", b"nosniff"),
         (b"x-frame-options", b"DENY"),
         (b"referrer-policy", b"same-origin"),
-        (b"content-security-policy", b"default-src 'none'; frame-ancestors 'none'"),
         (b"cache-control", b"no-store"),
+    )
+
+    _API_CSP = (
+        b"default-src 'none'; frame-ancestors 'none'"
+    )
+
+    _DOCS_CSP = (
+        b"default-src 'self'; "
+        b"script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        b"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        b"font-src 'self' https://fonts.gstatic.com; "
+        b"img-src 'self' data: https://fastapi.tiangolo.com; "
+        b"connect-src 'self'; "
+        b"frame-ancestors 'none'"
     )
 
     def __init__(self, app: Any) -> None:
         self.app = app
 
-    async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
+    async def __call__(
+        self,
+        scope: dict,
+        receive: Any,
+        send: Any,
+    ) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
 
+        path = scope.get("path", "")
+
+        if path in {"/docs", "/redoc", "/openapi.json"}:
+            csp = self._DOCS_CSP
+        else:
+            csp = self._API_CSP
+
         async def send_wrapper(message: dict) -> None:
             if message["type"] == "http.response.start":
                 headers_mut = message.setdefault("headers", [])
-                existing = {k.lower() for k, _ in headers_mut}
-                for key, value in self._HEADERS:
+                existing = {key.lower() for key, _ in headers_mut}
+
+                for key, value in self._BASE_HEADERS:
                     if key not in existing:
                         headers_mut.append((key, value))
+
+                if b"content-security-policy" not in existing:
+                    headers_mut.append(
+                        (b"content-security-policy", csp)
+                    )
+
             await send(message)
 
         await self.app(scope, receive, send_wrapper)
-
