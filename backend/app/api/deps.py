@@ -39,10 +39,13 @@ def set_session_cookie(response, raw_token: str, settings) -> None:
         max_age=settings.SESSION_TTL_DAYS * 86_400,
         httponly=True,
         secure=settings.is_production,
-        samesite="lax",
+        samesite="none" if settings.is_production else "lax",
         path="/",
     )
 
 
 def clear_session_cookie(response) -> None:
-    response.delete_cookie(key=SESSION_COOKIE_NAME, path="/")
+    response.delete_cookie(
+        key=SESSION_COOKIE_NAME,
+        path="/",
+    )
