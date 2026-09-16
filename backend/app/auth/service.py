@@ -70,18 +70,31 @@ def upsert_oauth_identity(
     expires_in: int,
     secret_key: bytes,
 ) -> tuple[User, OAuthConnection]:
-    """Create-or-update the Google identity binding; store ENCRYPTED tokens."""
+    """Create-or-update the Google identity binding; store ENCRYPTED tokens.
+
+    OAuth persists only the User + OAuthConnection. The Mailbox is created
+    lazily on the first analysis so the pre-analysis dashboard state
+    ("No analyzed mailbox yet") stays intact.
+    """
     connection = db.query(OAuthConnection).filter_by(google_sub=sub).one_or_none()
 
     if connection is None:
-        # Match an existing (future: password-based) account by verified email.
+        # Match an existing account by verified Google email.
         user = db.query(User).filter_by(email=email).one_or_none()
+
         if user is None:
-            user = User(email=email, display_name=display_name, avatar_url=avatar_url)
+            user = User(
+                email=email,
+                display_name=display_name,
+                avatar_url=avatar_url,
+            )
             db.add(user)
             db.flush()
+
         elif user.deleted_at is not None:
-            user.deleted_at = None  # re-activating a soft-deleted account
+            # Re-activate a soft-deleted account.
+            user.deleted_at = None
+
         connection = OAuthConnection(
             user_id=user.id,
             google_sub=sub,
@@ -91,21 +104,36 @@ def upsert_oauth_identity(
         )
         db.add(connection)
         db.flush()
+
     else:
         user = connection.user
 
+    # Update profile information from the latest verified Google identity.
     user.display_name = display_name or user.display_name
     user.avatar_url = avatar_url or user.avatar_url
 
-    connection.access_token_encrypted = encrypt_text(access_token, secret_key=secret_key)
-    if refresh_token:  # Google omits it when consent isn't re-prompted
-        connection.refresh_token_encrypted = encrypt_text(refresh_token, secret_key=secret_key)
+    # Update OAuth connection/token state.
+    connection.google_email = email
+    connection.access_token_encrypted = encrypt_text(
+        access_token,
+        secret_key=secret_key,
+    )
+
+    if refresh_token:
+        # Google may omit refresh_token when consent is not re-prompted.
+        connection.refresh_token_encrypted = encrypt_text(
+            refresh_token,
+            secret_key=secret_key,
+        )
+
     connection.scope = scope
     connection.token_expires_at = utcnow() + timedelta(seconds=expires_in)
     connection.status = OAuthStatus.ACTIVE
     connection.last_error = None
+    connection.revoked_at = None
 
     db.commit()
+
     return user, connection
 
 

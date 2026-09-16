@@ -22,6 +22,12 @@ _ACTIVE_STATUSES = [s.value for s in AnalysisJobStatus if s not in AnalysisJobSt
 
 
 def _connected_mailbox(db: Session, user: User) -> Mailbox:
+    """Resolve the user's mailbox, creating it lazily on the first analysis.
+
+    Google OAuth persists only the User + OAuthConnection (no Mailbox), so the
+    dashboard shows "No analyzed mailbox yet" before any run. The Mailbox is
+    born here on the first ``POST /api/analysis/start`` and reused afterwards.
+    """
     connection = db.query(OAuthConnection).filter_by(user_id=user.id).one_or_none()
     if connection is None or connection.status != OAuthStatus.ACTIVE:
         from app.core.errors import ValidationAppError
@@ -29,11 +35,12 @@ def _connected_mailbox(db: Session, user: User) -> Mailbox:
         raise ValidationAppError("Gmail is not connected. Connect the account first.")
     mailbox = db.query(Mailbox).filter_by(user_id=user.id).one_or_none()
     if mailbox is None:
-        from app.core.errors import ValidationAppError
-
-        raise ValidationAppError(
-            "No analyzed mailbox yet. Start an analysis to populate your dashboard."
+        mailbox = Mailbox(
+            user_id=user.id,
+            google_email_address=connection.google_email,
         )
+        db.add(mailbox)
+        db.flush()
     return mailbox
 
 

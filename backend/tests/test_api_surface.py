@@ -8,11 +8,14 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from app.auth.service import create_session, record_event, upsert_oauth_identity
 from app.models import (
+    AnalysisJob,
     EmailMessage,
     Mailbox,
+    OAuthConnection,
     Recommendation,
+    User,
 )
-from app.models.enums import AuditEvent
+from app.models.enums import AuditEvent, OAuthStatus
 from sqlalchemy.orm import Session
 
 _SECRET = b"a" * 48
@@ -79,6 +82,33 @@ def api_world(build_world):
     yield {
         "settings": settings, "client": client,
         "engine": engine, "user": user, "mailbox": mailbox,
+    }
+    db.close()
+
+
+@pytest.fixture()
+def connected_no_mailbox_world(build_world):
+    """Authenticated, Google-connected user with NO Mailbox.
+
+    Mirrors a fresh first-time OAuth sign-in: User + OAuthConnection exist,
+    but the Mailbox is only supposed to be born on the first analysis.
+    """
+    settings, client, engine = build_world(
+        GOOGLE_CLIENT_ID="cid", GOOGLE_CLIENT_SECRET="csecret",
+        FRONTEND_ORIGINS="http://localhost:3000",
+    )
+    db = Session(bind=engine)
+    user, _ = upsert_oauth_identity(
+        db,
+        sub="sub-first", email="first@example.com", display_name=None,
+        avatar_url=None, scope="scope", access_token="at", refresh_token="rt",
+        expires_in=3600, secret_key=_SECRET,
+    )
+    client.cookies.set("mailsweep_session", create_session(db, user_id=user.id, ttl_days=14))
+
+    yield {
+        "settings": settings, "client": client,
+        "engine": engine, "user": user,
     }
     db.close()
 
@@ -168,3 +198,111 @@ def test_audit_endpoint_lists_events(api_world):
     assert body["total"] >= 1
     assert any(e["event_type"] == "ACCOUNT_CONNECTED" for e in body["items"])
     assert body["items"][0]["created_at"]  # isoformat
+
+
+# ---------------------------------------------------------------------------
+# first-analysis lazy Mailbox creation (regression: production 422 on first run)
+# ---------------------------------------------------------------------------
+
+
+def test_first_analysis_creates_mailbox_and_job(connected_no_mailbox_world):
+    """Connected user with NO mailbox gets 202, plus an AnalysisJob + Mailbox."""
+    client = connected_no_mailbox_world["client"]
+    engine = connected_no_mailbox_world["engine"]
+    user_id = connected_no_mailbox_world["user"].id
+
+    db = Session(bind=engine)
+    try:
+        assert db.query(Mailbox).filter_by(user_id=user_id).count() == 0
+    finally:
+        db.close()
+
+    response = client.post("/api/analysis/start")
+    assert response.status_code == 202
+    body = response.json()
+    assert body["status"] == "QUEUED"
+
+    db = Session(bind=engine)
+    try:
+        mailbox = db.query(Mailbox).filter_by(user_id=user_id).one()
+        assert mailbox.google_email_address == "first@example.com"
+
+        job = db.query(AnalysisJob).filter_by(user_id=user_id).one()
+        assert str(job.mailbox_id) == str(mailbox.id)
+        assert body["job_id"] == str(job.id)
+    finally:
+        db.close()
+
+
+def test_subsequent_analysis_reuses_existing_mailbox(connected_no_mailbox_world):
+    client = connected_no_mailbox_world["client"]
+    engine = connected_no_mailbox_world["engine"]
+    user_id = connected_no_mailbox_world["user"].id
+
+    assert client.post("/api/analysis/start").status_code == 202
+
+    db = Session(bind=engine)
+    try:
+        mailbox = db.query(Mailbox).filter_by(user_id=user_id).one()
+        mailbox_id = mailbox.id
+        # Let the first run reach a terminal state so a second run may start.
+        db.query(AnalysisJob).filter_by(user_id=user_id).update({"status": "COMPLETED"})
+        db.commit()
+    finally:
+        db.close()
+
+    assert client.post("/api/analysis/start").status_code == 202
+
+    db = Session(bind=engine)
+    try:
+        assert db.query(Mailbox).filter_by(user_id=user_id).count() == 1
+        assert db.query(Mailbox).filter_by(user_id=user_id).one().id == mailbox_id
+
+        jobs = db.query(AnalysisJob).filter_by(user_id=user_id).all()
+        assert len(jobs) == 2
+        assert all(str(j.mailbox_id) == str(mailbox_id) for j in jobs)
+    finally:
+        db.close()
+
+
+def test_start_analysis_requires_active_gmail(connected_no_mailbox_world):
+    """A revoked/non-active connection must still fail before any Mailbox exists."""
+    client = connected_no_mailbox_world["client"]
+    engine = connected_no_mailbox_world["engine"]
+    user_id = connected_no_mailbox_world["user"].id
+
+    db = Session(bind=engine)
+    try:
+        connection = db.query(OAuthConnection).filter_by(user_id=user_id).one()
+        connection.status = OAuthStatus.REVOKED
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.post("/api/analysis/start")
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "validation_error"
+
+    db = Session(bind=engine)
+    try:
+        assert db.query(Mailbox).filter_by(user_id=user_id).count() == 0
+    finally:
+        db.close()
+
+
+def test_start_analysis_requires_oauth_connection(build_world):
+    """A user with NO OAuthConnection at all still gets a clean 422."""
+    settings, client, engine = build_world(
+        GOOGLE_CLIENT_ID="cid", GOOGLE_CLIENT_SECRET="csecret",
+        FRONTEND_ORIGINS="http://localhost:3000",
+    )
+    db = Session(bind=engine)
+    user = User(email="bare@example.com", display_name="Bare")
+    db.add(user)
+    db.flush()
+    client.cookies.set("mailsweep_session", create_session(db, user_id=user.id, ttl_days=14))
+    db.close()
+
+    response = client.post("/api/analysis/start")
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "validation_error"
