@@ -1,5 +1,6 @@
 import { API_BASE, apiFetch, qs } from "@/lib/apiClient";
 import type {
+  AnalysisActiveResponse,
   AnalysisJob,
   AnalysisStartResponse,
   ApprovePlanResponse,
@@ -47,6 +48,9 @@ export const startAnalysis = () =>
 
 export const getAnalysisJob = (jobId: string) =>
   apiFetch<AnalysisJob>(`/api/analysis/jobs/${jobId}`);
+
+export const getActiveAnalysis = () =>
+  apiFetch<AnalysisActiveResponse>("/api/analysis/active");
 
 // ---------------------------------------------------------------- mailbox
 export const getMailboxSummary = () => apiFetch<MailboxSummary>("/api/mailbox/summary");

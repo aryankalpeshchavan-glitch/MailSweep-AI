@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { startAnalysis, cancelPlan } from "@/api/endpoints";
-import { useAnalysisJobPoll, usePlans } from "@/api/queries";
-import type { ApiError } from "@/lib/apiClient";
+import { analysisKeys, useActiveAnalysis, useAnalysisJobPoll, usePlans } from "@/api/queries";
+import { ApiError } from "@/lib/apiClient";
 import { formatNumber, formatDate, humanize } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import {
@@ -29,11 +29,28 @@ import type { AnalysisJob, CleanupPlan } from "@/types/api";
  */
 export function AnalysisApprovalPage() {
   const [jobId, setJobId] = useState<string | null>(null);
+  const active = useActiveAnalysis();
+  const queryClient = useQueryClient();
+
+  // Restore a backend-active analysis after mount/navigation so the scanning
+  // stage resumes instead of starting a duplicate job.
+  useEffect(() => {
+    const activeJob = active.data?.active;
+    if (activeJob && activeJob.status !== "COMPLETED" && activeJob.status !== "FAILED" && activeJob.status !== "CANCELLED") {
+      setJobId(activeJob.job_id);
+    }
+  }, [active.data, jobId]);
 
   const start = useMutation({
     mutationFn: startAnalysis,
     onSuccess: (res) => {
       setJobId(res.job_id);
+    },
+    onError: (err) => {
+      // 409 = an analysis is already active: resume polling it.
+      if (err instanceof ApiError && err.status === 409) {
+        void queryClient.refetchQueries({ queryKey: analysisKeys.active });
+      }
     },
   });
 

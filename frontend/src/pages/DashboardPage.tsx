@@ -1,35 +1,56 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { startAnalysis } from "@/api/endpoints";
-import { useAnalysisJobPoll, useMailboxSummary } from "@/api/queries";
+import { analysisKeys, useActiveAnalysis, useAnalysisJobPoll, useMailboxSummary } from "@/api/queries";
 import { useAuth } from "@/context/useAuth";
 import { ApiError } from "@/lib/apiClient";
 import { formatDate, formatNumber, humanize } from "@/lib/format";
 import { DataPanel, EmptyState, ErrorState, ProgressBar, Spinner, StatCard } from "@/components/ui";
 import type { MailboxSummary } from "@/types/api";
 
+const TERMINAL_STATUSES = new Set(["COMPLETED", "FAILED", "CANCELLED"]);
+const isTerminal = (status: string | undefined) => TERMINAL_STATUSES.has(status ?? "");
+
 /** Dashboard (Phase 8) — real data from /api/mailbox/summary (Phase 8). */
 export function DashboardPage() {
   const { status } = useAuth();
   const summary = useMailboxSummary();
+  const active = useActiveAnalysis();
   const queryClient = useQueryClient();
   const [jobId, setJobId] = useState<string | null>(null);
   const poll = useAnalysisJobPoll(jobId, Boolean(jobId));
 
+  // Restore a backend-active analysis after mount / navigation / refresh so the
+  // progress UI survives route changes. The backend is the source of truth.
+  useEffect(() => {
+    const activeJob = active.data?.active;
+    if (activeJob && !isTerminal(activeJob.status)) {
+      setJobId(activeJob.job_id);
+    }
+  }, [active.data, jobId]);
+
   const start = useMutation({
     mutationFn: startAnalysis,
     onSuccess: (res) => setJobId(res.job_id),
+    onError: (err) => {
+      // 409 = an analysis is already active: resume polling it instead of
+      // surfacing a generic failure or creating a duplicate job.
+      if (err instanceof ApiError && err.status === 409) {
+        void queryClient.refetchQueries({ queryKey: analysisKeys.active });
+      }
+    },
   });
 
-    useEffect(() => {
-    if (poll.data && (poll.data.status === "COMPLETED" || poll.data.status === "FAILED")) {
+  useEffect(() => {
+    if (poll.data && isTerminal(poll.data.status)) {
       void queryClient.invalidateQueries({ queryKey: ["mailbox", "summary"] });
+      void queryClient.invalidateQueries({ queryKey: analysisKeys.active });
     }
   }, [poll.data, queryClient]);
 
   const s = summary.data;
   const startError = start.error ? (start.error as ApiError).message : null;
-  const analyzing = start.isPending || Boolean(poll.data);
+  const analyzing = start.isPending || (Boolean(poll.data) && !isTerminal(poll.data?.status));
   const canAnalyze = Boolean(status?.gmail_connection?.connected);
 
   return (
@@ -56,27 +77,43 @@ export function DashboardPage() {
         </button>
       </div>
 
-      {startError && (
+      {startError && !(start.error instanceof ApiError && start.error.status === 409) && (
         <div className="panel panel-strong p-4 text-body-sm text-safety-amber" role="alert">
           {startError}
         </div>
       )}
 
-      {/* Live analysis progress (real backend data). */}
-      {poll.data ? (
-        <DataPanel label="Analysis in progress" accent="blue">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="data-label">{humanize(poll.data.status)}</span>
-            <span className="data-label data-label-accent">
-              {formatNumber(poll.data.messages_processed)} / {formatNumber(poll.data.messages_total)}
-            </span>
-          </div>
-          <ProgressBar value={poll.data.progress_percent ?? 0} label="Progress" />
-                              {poll.data.error_message && (
-            <p className="mt-3 text-xs text-neutral-grey-60">{poll.data.error_message}</p>
-          )}
-        </DataPanel>
-      ) : null}
+      {/* Live analysis state (real backend data, survives navigation). */}
+      {poll.data &&
+        (poll.data.status === "FAILED" ? (
+          <DataPanel label="Analysis failed" accent="blue">
+            <p className="text-body-sm text-safety-amber">
+              {poll.data.error_message ?? "This analysis failed. Run analysis again to retry."}
+            </p>
+            {poll.data.error_code && (
+              <p className="mt-1 text-xs text-neutral-grey-60">Code: {poll.data.error_code}</p>
+            )}
+          </DataPanel>
+        ) : poll.data.status === "CANCELLED" ? (
+          <DataPanel label="Analysis cancelled" accent="blue">
+            <p className="text-body-sm text-neutral-grey-60">
+              This analysis was cancelled before completing.
+            </p>
+          </DataPanel>
+        ) : poll.data.status === "COMPLETED" ? null : (
+          <DataPanel label="Analysis in progress" accent="blue">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="data-label">{humanize(poll.data.status)}</span>
+              <span className="data-label data-label-accent">
+                {formatNumber(poll.data.messages_processed)} / {formatNumber(poll.data.messages_total)}
+              </span>
+            </div>
+            <ProgressBar value={poll.data.progress_percent ?? 0} label="Progress" />
+            {poll.data.error_message && (
+              <p className="mt-3 text-xs text-neutral-grey-60">{poll.data.error_message}</p>
+            )}
+          </DataPanel>
+        ))}
 
       {summary.isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

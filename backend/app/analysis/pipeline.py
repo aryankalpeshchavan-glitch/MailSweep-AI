@@ -55,6 +55,14 @@ def run_mailbox_analysis(
         _transition(db, job, None, AnalysisJobStatus.RUNNING)
         job.started_at = utcnow()
         db.commit()
+        logger.info(
+            "mailbox analysis started",
+            extra={
+                "event": "analysis_started",
+                "job_id": str(job_pk),
+                "mailbox_id": str(mailbox.id),
+            },
+        )
 
         message_ids = gmail.list_message_ids(
             page_size=settings.GMAIL_PAGE_SIZE,
@@ -136,6 +144,14 @@ def _transition(db: Session, job: AnalysisJob, from_status, to_status: AnalysisJ
         raise RuntimeError(f"Unexpected job status {job.status}, expected {from_status}")
     job.status = to_status.value
     db.commit()
+    logger.info(
+        "analysis stage changed",
+        extra={
+            "event": "analysis_stage_changed",
+            "job_id": str(job.id),
+            "stage": to_status.value,
+        },
+    )
 
 
 def _is_cancelled(db: Session, job_pk) -> bool:

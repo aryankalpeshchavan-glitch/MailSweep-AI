@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import {
+  getActiveAnalysis,
   getAnalysisJob,
   getAuthStatus,
   getGroup,
@@ -84,12 +85,35 @@ export function useAudit(page = 1, pageSize = 50, eventType?: string) {
 
 export function useAnalysisJobPoll(jobId: string | null, enabled: boolean) {
   return useQuery({
-    queryKey: ["analysis", "job", jobId] as const,
+    queryKey: analysisKeys.job(jobId),
     queryFn: () => getAnalysisJob(jobId as string),
     enabled: Boolean(jobId) && enabled,
-    refetchInterval: (query) => {
-      const s = query.state.data?.status;
-      return s === "PENDING" || s === "RUNNING" ? 2000 : false;
-    },
+    refetchInterval: (query) => jobPollInterval(query.state.data?.status),
+  });
+}
+
+/**
+ * Poll cadence for an analysis job. Terminal statuses stop polling; every
+ * non-terminal status (QUEUED, RUNNING, CLASSIFYING, GROUPING,
+ * BUILDING_RECOMMENDATIONS) keeps polling so progress keeps updating.
+ */
+export function jobPollInterval(status: string | undefined): number | false {
+  if (status === "COMPLETED" || status === "FAILED" || status === "CANCELLED") {
+    return false;
+  }
+  return 2000;
+}
+
+/** Keys for backend-derived analysis state (source of truth). */
+export const analysisKeys = {
+  active: ["analysis", "active"] as const,
+  job: (id: string | null) => ["analysis", "job", id] as const,
+};
+
+/** Latest non-terminal analysis job for the signed-in user (or none). */
+export function useActiveAnalysis() {
+  return useQuery({
+    queryKey: analysisKeys.active,
+    queryFn: getActiveAnalysis,
   });
 }

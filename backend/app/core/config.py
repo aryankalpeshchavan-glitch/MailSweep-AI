@@ -56,6 +56,13 @@ class Settings(BaseSettings):
     DATABASE_URL: str = ""  # empty in dev => SQLite fallback; prod => Postgres
     REDIS_URL: str = ""  # empty in dev => inline jobs, no rate limiting
 
+    # --------------------------------------------------------- job dispatch
+    #: "auto" -> Celery when REDIS_URL is configured, inline thread otherwise
+    #: (legacy default). "inline" -> always the in-process background thread
+    #: (lets a web-only production service run jobs without a Celery worker).
+    #: "celery" -> always Celery (dedicated worker). Pydantic rejects other values.
+    JOB_DISPATCH_MODE: Literal["auto", "inline", "celery"] = "auto"
+
     # ----------------------------------------------------------- google oauth
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
@@ -75,6 +82,11 @@ class Settings(BaseSettings):
     SESSION_TTL_DAYS: int = 14
     RATE_LIMIT_AUTH_PER_MINUTE: int = 10
     RATE_LIMIT_EXPENSIVE_PER_MINUTE: int = 5
+    #: A QUEUED job whose execution never set ``started_at`` within this many
+    #: seconds is treated as abandoned and marked FAILED (safe recovery, lets
+    #: the user retry without manual DB changes). A genuinely running job
+    #: always stamps ``started_at`` immediately, so it is never touched.
+    STALE_QUEUED_JOB_TIMEOUT_SECONDS: int = 300
 
     # ------------------------------------------------------------- validators
     @model_validator(mode="after")

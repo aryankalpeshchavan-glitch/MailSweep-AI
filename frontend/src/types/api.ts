@@ -62,6 +62,11 @@ export interface AnalysisJob {
   completed_at: string | null;
 }
 
+export interface AnalysisActiveResponse {
+  /** Latest non-terminal job for this user, or null when none exists. */
+  active: AnalysisJob | null;
+}
+
 // ------------------------------------------------------------------- mailbox
 export interface MailboxSummary {
   gmail_connection: { connected: boolean; email: string | null };
